@@ -1,13 +1,9 @@
 #include "Process.h"
-
 #include "Keymap.h"
 #include "Terminal.h"
 
 Process::Process() {
     _brush = new Brush();
-    auto winsize = terminal.get_window_size();
-    _width = winsize.width;
-    _height = winsize.height;
     terminal.put_cursor(1, 3);
 }
 
@@ -22,10 +18,9 @@ void Process::start() {
             continue;
         }
         if (Keymap::is_color_key(c)) {
-            ANSI_colors color = Keymap::key_to_color(c);
-            _brush->change_color(color);
+            _brush->change_color(Keymap::key_to_color(c));
             draw_menu_background();
-            draw_shade_options(color);
+            draw_shade_options();
             continue;
         }
         if (Keymap::is_shade_key(c)) {
@@ -37,59 +32,72 @@ void Process::start() {
             _brush->paint();
             continue;
         }
+        if (Keymap::is_save_key(c)) {
+            terminal.save_terminal();
+            continue;
+        }
+        if (Keymap::is_load_key(c)) {
+            terminal.load_terminal();
+            draw_menu();
+            continue;
+        }
     }
 }
 
-void Process::unlock() {
+void Process::unlock() const {
     terminal.save_cursor_pos();
-    terminal.set_cursor_bounds(1, _height, 1, _width);
+    auto winsize = terminal.get_window_size();
+    terminal.set_cursor_bounds(1, winsize.height, 1, winsize.width);
 }
 
-void Process::lock() {
-    terminal.set_cursor_bounds(3, _height -1, 1, _width);
+void Process::lock() const {
+    auto winsize = terminal.get_window_size();
+    terminal.set_cursor_bounds(3, winsize.height -1, 1, winsize.width);
     terminal.load_cursor_pos();
 }
 
-void Process::draw_menu() {
+void Process::draw_menu() const {
     draw_menu_background();
     draw_color_options();
-    draw_shade_options(WHITE);
+    draw_shade_options();
     terminal.put_cursor(1, 3);
     draw_coords();
+    draw_save_options();
 }
 
 
-void Process::draw_menu_background() {
+void Process::draw_menu_background() const {
     unlock();
     terminal.set_bg_color(BLACK);
     terminal.put_cursor(1, 1);
+    auto winsize = terminal.get_window_size();
     
     for (int i = 1; i < 3; ++i) {
         terminal.put_cursor(1, i);
-        for (int j = 1; j <= _width; ++j) {
-            if (j == 1 || (j >= 18 && j <= 19) || j >= 34) {
+        for (int j = 1; j <= winsize.width; ++j) {
+            if (j == 1 || (j >= 18 && j <= 19) || (j >= 34 && j <= winsize.width -7) || j == winsize.width) {
                 _brush->paint();
             }
             terminal.move_cursor('r');
         }
     }
 
-    terminal.put_cursor(1, _height);
-    for (int i = 1; i <= _width; ++i) {
-        if (i < _width -10 || i == _width) {
+    terminal.put_cursor(1, winsize.height);
+    for (int i = 1; i <= winsize.width; ++i) {
+        if (i < winsize.width -10 || i == winsize.width) {
             _brush->paint();
         }
         terminal.move_cursor('r');
     }
     
     terminal.set_txt_color(BLACK);
-    terminal.put_cursor(2, _height);
+    terminal.put_cursor(2, winsize.height);
     terminal.set_bg_color(WHITE);
     terminal.print("q:quit");
     lock();
 }
 
-void Process::draw_color_options() {
+void Process::draw_color_options() const {
     unlock();
     terminal.put_cursor(2, 1);
     
@@ -139,10 +147,10 @@ void Process::draw_color_options() {
     lock();
 }
 
-void Process::draw_shade_options(ANSI_colors colors) {
+void Process::draw_shade_options() const {
     unlock();
-    terminal.put_cursor(20, 1);
-    terminal.set_bg_color(colors);
+    terminal.put_cursor(20, 1);  
+    terminal.set_bg_color(_brush->current_color());
     terminal.set_txt_color(WHITE);
     terminal.print("▓▓▒▒░░  ");
     terminal.set_txt_color(BLACK);
@@ -155,19 +163,32 @@ void Process::draw_shade_options(ANSI_colors colors) {
     lock();
 }
 
-void Process::draw_coords() {
+void Process::draw_coords() const {
     unlock();
     terminal.set_txt_color(BLACK);
     terminal.set_bg_color(WHITE);
     auto pos = terminal.get_cursor_pos();
     std::string x = "x:" + std::to_string(pos.x);
     std::string y = "y:" + std::to_string(pos.y -2);
+    auto winsize = terminal.get_window_size();
     
-    terminal.put_cursor(_width-10, _height);
+    terminal.put_cursor(winsize.width-10, winsize.height);
     terminal.print("          ");
-    terminal.put_cursor(_width-10, _height);
+    terminal.put_cursor(winsize.width-10, winsize.height);
     terminal.print(x);
-    terminal.put_cursor(_width-5, _height);
+    terminal.put_cursor(winsize.width-5, winsize.height);
     terminal.print(y);
+    lock();
+}
+
+void Process::draw_save_options() const {
+    unlock();
+    auto winsize = terminal.get_window_size();
+    terminal.put_cursor(winsize.width-6, 1);
+    terminal.set_txt_color(BLACK);
+    terminal.set_bg_color(WHITE);
+    terminal.print("s:save");
+    terminal.put_cursor(winsize.width-6, 2);
+    terminal.print("l:load");
     lock();
 }

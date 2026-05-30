@@ -8,25 +8,23 @@ private:
     
     Brush *_brush;
     
-    int _width; // helpers
-    int _height; // helpers
-    
 public:
     Process();
     ~Process();
     
     void start();
     
-    void draw_menu();
+    void draw_menu() const;
     
 private:
-    void draw_menu_background();
-    void draw_color_options();
-    void draw_shade_options(ANSI_colors colors);
-    void draw_coords();
+    void draw_menu_background() const;
+    void draw_color_options() const;
+    void draw_shade_options() const;
+    void draw_coords() const;
+    void draw_save_options() const;
     
-    void unlock();
-    void lock();
+    void unlock() const;
+    void lock() const;
 };
 
 

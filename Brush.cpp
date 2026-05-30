@@ -33,7 +33,8 @@ void Brush::paint() {
             terminal.set_txt_color(BLACK);
             break;
     }
-    terminal.put_char(_char);
+    terminal.print(_char);
+    terminal.move_cursor('l');
 }
 
 void Brush::change_color(const ANSI_colors color) {
@@ -65,4 +66,8 @@ void Brush::change_shade(const shades shade) {
             _char = "▓";
             break;
     }
+}
+
+ANSI_colors Brush::current_color() {
+    return _color;
 }

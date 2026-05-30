@@ -2,10 +2,12 @@
 #include "Utils.h"
 
 #include <iostream>
+#include <sstream>
+#include <fstream>
+#include <regex>
 #include <termios.h>
 #include <unistd.h>
 #include <sys/ioctl.h>
-#include <cstdarg>
 
 Terminal terminal;
 
@@ -38,19 +40,13 @@ Terminal::Terminal() {
     _cursor_y_pos = 1;
     _stored_cursor_x_pos = 1;
     _stored_cursor_y_pos = 1;
-
-    // For debugging
-    // for (int i = 1; i <= _terminal_width; ++i) {
-    //     for (int j = 1; j <= _terminal_height; ++j) {
-    //         put_cursor(i, j);
-    //         put_char('x');
-    //     }
-    // }
+    _filename = "canvas.wave";
+    std::string blank_space = (static_cast<std::string>(TXT_WHITE) + static_cast<std::string>(BG_BLACK) + " ");
+    _filebuffer.assign(_terminal_width * _terminal_height, blank_space);
+    
     put_cursor(1, 1);
     std::cout <<CLEAR_SCREEN <<std::flush;
     
-    _has_file = true;
-    _filename = "example.txt";
 }
 
 Terminal::~Terminal() {
@@ -75,7 +71,7 @@ void Terminal::put_cursor(const int x, const int y) {
 
     _cursor_x_pos = x;
     _cursor_y_pos = y;
-    _cout("\033[", y, ";", x, "H");
+    std::cout <<"\033[" <<y <<";" <<x <<"H" <<std::flush;
 }
 
 void Terminal::move_cursor(const char dir, const int amount) {
@@ -98,23 +94,23 @@ void Terminal::move_cursor(const char dir, const int amount) {
 }
 
 void Terminal::hide_cursor() {
-    _cout(HIDE_CURSOR);
+    std::cout <<HIDE_CURSOR <<std::flush;
     put_cursor(_cursor_x_pos, _cursor_y_pos);
 }
 void Terminal::show_cursor() {
-    _cout(SHOW_CURSOR);
+    std::cout <<SHOW_CURSOR <<std::flush;
     put_cursor(_cursor_x_pos, _cursor_y_pos);
 }
 void Terminal::save_cursor_pos() {
     _stored_cursor_x_pos = _cursor_x_pos;
     _stored_cursor_y_pos = _cursor_y_pos;
-    _cout(SAVE_CURSOR_POS);
+    std::cout <<SAVE_CURSOR_POS <<std::flush;
     put_cursor(_cursor_x_pos, _cursor_y_pos);
 }
 void Terminal::load_cursor_pos() {
     _cursor_x_pos = _stored_cursor_x_pos;
     _cursor_y_pos = _stored_cursor_y_pos;
-    _cout(LOAD_CURSOR_POS);
+    std::cout <<LOAD_CURSOR_POS <<std::flush;
     put_cursor(_cursor_x_pos, _cursor_y_pos);
 }
 
@@ -154,14 +150,37 @@ char Terminal::get_char() {
 }
 
 void Terminal::print(const std::string &str) {
-    _cout(_cursor_type, _txt_color, _bg_color, str);
+    _cout(str);
     move_cursor('r', _visible_width_utf8(str));
 }
 
-void Terminal::put_char(std::string c) {
-    _cout(_cursor_type, _txt_color, _bg_color, c);
-    put_cursor(_cursor_x_pos, _cursor_y_pos);
-};
+// void Terminal::put_char(const std::string &c) {
+//     std::cout
+//     <<_cursor_type
+//     <<_txt_color
+//     <<_bg_color
+//     <<c
+//     <<std::flush;
+//     put_cursor(_cursor_x_pos, _cursor_y_pos);
+// }
+
+void Terminal::_cout(const std::string &str) {
+    std::cout
+        <<_cursor_type
+        <<_txt_color
+        <<_bg_color
+        <<str
+        <<std::flush;
+
+    int i = 0;
+    for (int j = 0; j < str.size(); j += _char_len_utf8(str[j])) {
+        const int k = (_cursor_x_pos -1 +i) + (_cursor_y_pos -1) * _terminal_width;
+        int len = _char_len_utf8(str[j]);
+        std::string full_char = str.substr(j, len);
+        _filebuffer[k] = (_cursor_type + _txt_color + _bg_color + full_char);
+        i++;
+    }
+}
 
 void Terminal::set_cursor_bounds(const int t, const int b, const int l, const int r) {
     if (t < 1 || b > _terminal_height || l < 1 || r > _terminal_width) {
@@ -293,17 +312,92 @@ cursor_pos Terminal::get_cursor_pos() const {
     };
 }
 
-void Terminal::_cout(auto... args) {
-    (std::cout << ... << args) <<std::flush;
+void Terminal::save_terminal() {
+    std::ofstream file(_filename, std::ios::trunc);
+    file 
+        <<"WAVE-PAINT-CLI CANVAS FILE" <<std::endl
+        <<_terminal_width <<std::endl
+        <<_terminal_height <<std::endl;
+    for (int i = 0; i < _filebuffer.size(); ++i) {
+        file <<_filebuffer[i] <<",";
+    }
+    file.close();
 }
+
+void Terminal::load_terminal() {
+    std::ifstream file(_filename);
+    std::string header;
+    std::getline(file, header);
+    if (header != "WAVE-PAINT-CLI CANVAS FILE") {
+        return;
+    }
+    
+    std::cout <<CURSOR_BOX_BLINK <<TXT_WHITE <<BG_BLACK <<CLEAR_SCREEN <<std::flush;
+    
+    std::getline(file, header);
+    _terminal_width = std::stoi(header);
+    std::getline(file, header);
+    _terminal_height = std::stoi(header);
+    
+    std::string blank_space = (static_cast<std::string>(TXT_WHITE) + static_cast<std::string>(BG_BLACK) + " ");
+    _filebuffer.assign(_terminal_width * _terminal_height, blank_space);
+    std::string str;
+    int i = 0;
+    while (std::getline(file, str, ',')) {
+        _filebuffer[i++] = str;
+    }
+    file.close();
+    
+    for (int i = 1; i <= _terminal_height; ++i) {
+        for (int j = 1; j <= _terminal_width; ++j) {
+            put_cursor(j, i);
+            const int index = (j -1) + (i -1) * _terminal_width;
+            std::cout
+                <<_filebuffer[index]
+                <<std::flush;
+        }
+    }
+    put_cursor(1, 1);
+}
+
 
 // 0% human-written method
 int Terminal::_visible_width_utf8(const std::string &str) {
     int width = 0;
-    for (unsigned char c : str) {
+    for (const unsigned char c : str) {
         if ((c & 0xC0) != 0x80) {
             ++width;
         }
     }
     return width;
+}
+// 0% human-written method
+int Terminal::_char_len_utf8(unsigned char c) {
+    if ((c & 0x80) == 0x00) return 1;
+    if ((c & 0xE0) == 0xC0) return 2;
+    if ((c & 0xF0) == 0xE0) return 3;
+    if ((c & 0xF8) == 0xF0) return 4;
+    return 1;
+}
+
+void Terminal::_scrub_save() {
+    static const std::vector<std::string> unwanted = {
+        CURSOR_BOX_BLINK,
+        CURSOR_BAR_BLINK,
+        HIDE_CURSOR,
+        SHOW_CURSOR,
+        SAVE_CURSOR_POS,
+        LOAD_CURSOR_POS,
+    };
+    static const std::regex cursor_pos_reg("\033\\[[0-9]+;[0-9]+H");
+    
+    for (auto &x : _filebuffer) {
+        for (auto &y : unwanted) {
+            auto pos = x.find(y);
+            if (pos != std::string::npos) {
+                x.erase(pos, y.size());
+            }
+        }
+        x = std::regex_replace(x, cursor_pos_reg, "");
+    }
 }

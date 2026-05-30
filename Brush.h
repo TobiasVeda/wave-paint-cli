@@ -15,6 +15,7 @@ public:
     void paint();
     void change_color(ANSI_colors color);
     void change_shade(shades shade);
+    ANSI_colors current_color();
 };
 
 

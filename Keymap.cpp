@@ -18,7 +18,15 @@ bool Keymap::is_paint_key(const char c) {
 }
 
 bool Keymap::is_quit_key(const char c) {
-    return c == 'q';
+    return c == 'q' || c == 'Q';
+}
+
+bool Keymap::is_save_key(const char c) {
+    return c == 's' || c == 'S';
+}
+
+bool Keymap::is_load_key(const char c) {
+    return c == 'l' || c == 'L';
 }
 
 ANSI_colors Keymap::key_to_color(const char c) {

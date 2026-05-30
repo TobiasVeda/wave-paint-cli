@@ -3,13 +3,15 @@
 
 #include <string>
 #include <termios.h>
+#include <vector>
+
 #include "Utils.h"
 
-struct window_size{
+struct window_size {
     int width;
     int height;
 };
-struct cursor_pos{
+struct cursor_pos {
     int x;
     int y;
 };
@@ -35,8 +37,8 @@ private:
     int _stored_cursor_x_pos;
     int _stored_cursor_y_pos;
     
-    bool _has_file;
     std::string _filename;
+    std::vector<std::string> _filebuffer;
     
 public:
     Terminal();
@@ -50,7 +52,7 @@ public:
     void save_cursor_pos();
     void load_cursor_pos();
     
-    void put_char(std::string c); // Doesn't move cursor
+    // void put_char(const std::string &c); // Doesn't move cursor
     char get_char(); // Moves cursor on arrow keys then returns \0
     void print(const std::string &str); // Moves cursor
     
@@ -61,10 +63,15 @@ public:
     
     window_size get_window_size() const;
     cursor_pos get_cursor_pos() const;
+
+    void save_terminal();
+    void load_terminal();
     
 private:
-    void _cout(auto... args);
+    void _cout(const std::string &str);
     int _visible_width_utf8(const std::string &str);
+    int _char_len_utf8(unsigned char c);
+    void _scrub_save();
 };
 extern Terminal terminal;
 
